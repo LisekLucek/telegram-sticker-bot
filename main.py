@@ -114,17 +114,16 @@ def on_sticker(update, callback):
 
 	set_info = database.get_set_info(update['message']['sticker']['set_name'])
 
-	if not set_info:
-		return
+	if set_info:
+		now = datetime.datetime.now()
+		if (now - set_info[ "update_time" ]).total_seconds() < 24 * 60 * 60:
+			return
 
-	now = datetime.datetime.now()
+	download_queue.append(update[ 'message' ][ 'sticker' ][ 'set_name' ])
 
-	if (now - set_info["update_time"]).total_seconds() > 24 * 60 * 60:
-		download_queue.append(update[ 'message' ][ 'sticker' ][ 'set_name' ])
-
-		if not download_thread.is_alive():
-			download_thread = threading.Thread(target = download_full_queue)
-			download_thread.start()
+	if not download_thread.is_alive():
+		download_thread = threading.Thread(target = download_full_queue)
+		download_thread.start()
 
 
 dispatcher: telegram.ext.Dispatcher = updater.dispatcher
