@@ -3,7 +3,7 @@ import mysql.connector
 import telegram
 
 from PIL import Image
-import imagehash
+# import imagehash
 
 import utils
 
