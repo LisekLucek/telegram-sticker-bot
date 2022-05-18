@@ -2,6 +2,7 @@ CREATE TABLE `sets` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
   `title` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `update_time` TIMESTAMP DEFAULT NOW() ON UPDATE NOW(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `id_UNIQUE` (`id`),
   UNIQUE KEY `name_UNIQUE` (`name`)
@@ -16,6 +17,7 @@ CREATE TABLE `stickers` (
   `emoji` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL,
   `is_animated` tinyint(1) DEFAULT NULL,
   `is_video` tinyint(1) DEFAULT NULL,
+  `update_time` TIMESTAMP NULL DEFAULT NOW() ON UPDATE NOW(),
   PRIMARY KEY (`id`),
   KEY `fk_stickers_set_id_idx` (`set_id`),
   KEY `hash_index` (`hash`),

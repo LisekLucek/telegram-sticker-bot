@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import datetime
 import json
 import threading
 
@@ -11,6 +11,7 @@ import telegram.ext
 
 import console
 import database
+import downloader
 import utils
 
 from dotenv import load_dotenv
@@ -57,15 +58,9 @@ def download_sticker_set():
 
 		console.progress(f"Downloading stickers [ { set_name }/{ sticker.file_unique_id } ]", i, len(sticker_set["stickers"]))
 
-		if not os.path.exists(f"stickers"):
-			os.mkdir(f"stickers")
-		
-		if not os.path.exists(f"stickers/{ set_name }"):
-			os.mkdir(f"stickers/{ set_name }")
-
 		try:
 			if not os.path.exists(f"stickers/{ set_name }/{sticker.file_unique_id}.webp"):
-				sticker.get_file().download(f"stickers/{ set_name }/{sticker.file_unique_id}.webp")
+				downloader.download_sticker(sticker.get_file(), f"stickers/{sticker[ 'set_name' ]}/{sticker.file_unique_id}.webp")
 		except telegram.TelegramError:
 			console.warn(f"Failed to download sticker! [ { set_name }/{ sticker.file_unique_id } ]")
 			continue
@@ -81,22 +76,19 @@ def download_sticker_set():
 			"is_video": sticker["is_video"]
 		})
 
+		# downloader.upload_sticker(f"stickers/{ set_name }/{sticker.file_unique_id}.webp")
+
 		console.progress(f"Downloading stickers [ { set_name }/{ sticker.file_unique_id } ]", i + 1, len(sticker_set["stickers"]))
 
 	database.add_set(sticker_set, stickers)
-	console.log_dynamic(f"Downloaded sticker pack { set_name }!")
+	console.log_dynamic(f"Updated sticker pack { set_name }!")
+
+	downloader.remove_set(set_name)
 
 	# download_sticker_set()
 
 
 download_thread = threading.Thread(target = download_full_queue)
-
-# chat = bot.get_chat("@NiuEarsup")
-# chatL = bot.get_chat(1213349698)
-# print(chat)
-# print(chatL)
-#
-# bot.forward_message(chatL.id, chat.id, 91)
 
 
 def on_message(update, callback):
@@ -120,42 +112,19 @@ def on_sticker(update, callback):
 	update.effective_message.reply_text(resp, quote = True)
 	# f"Got sticker from https://t.me/addstickers/{ update['message']['sticker']['set_name'] }!"
 
-	download_queue.append(update[ 'message' ][ 'sticker' ][ 'set_name' ])
+	set_info = database.get_set_info(update['message']['sticker']['set_name'])
 
-	if not download_thread.is_alive():
-		download_thread = threading.Thread(target = download_full_queue)
-		download_thread.start()
+	if not set_info:
+		return
 
+	now = datetime.datetime.now()
 
-# with open("result_NK.json", "r") as f:
-# 	chat = json.load(f)
+	if (now - set_info["update_time"]).total_seconds() > 24 * 60 * 60:
+		download_queue.append(update[ 'message' ][ 'sticker' ][ 'set_name' ])
 
-# for message in chat["messages"]:
-#     if type(message["text"]) is list:
-#         for line in message["text"]:
-#             if "text" in line and "type" in line:
-#                 if line["type"] != "link":
-#                     continue
-#                 if line["text"][0:25] != "https://t.me/addstickers/":
-#                     continue
-#                 download_sticker_set(line["text"][25:])
-
-# database.recalculate_hashes()
-
-#i = 0
-
-#while True:
-	#sets = database.get_sets(i)
-	#i += 100
-	#if not sets:
-		#break
-
-	#for sticker_set in sets:
-		#download_queue.append(sticker_set["name"])
-
-		#if not download_thread.is_alive():
-			#download_thread = threading.Thread(target = download_full_queue)
-			#download_thread.start()
+		if not download_thread.is_alive():
+			download_thread = threading.Thread(target = download_full_queue)
+			download_thread.start()
 
 
 dispatcher: telegram.ext.Dispatcher = updater.dispatcher

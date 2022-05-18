@@ -4,12 +4,13 @@ import telegram
 
 from PIL import Image
 # import imagehash
-
+import downloader
 import utils
 
 
 # SELECT COUNT(*) AS n, * FROM stickers GROUP BY p_hash ORDER BY n DESC
 # SELECT * FROM sets, stickers WHERE stickers.set_id = sets.id AND stickers.p_hash = (SELECT p_hash FROM stickers WHERE id = "AgADYQMAAi-vkUU")
+
 
 def create_connection():
 	mydb = mysql.connector.connect(
@@ -41,6 +42,7 @@ def add_set(sticker_set, stickers):
 	else:
 		set_id = row[ 0 ]
 
+	cur.execute("UPDATE sets SET update_time = NOW() WHERE id = %s", (set_id,))
 	# print(f"Set ID: {set_id}")
 
 	for i, sticker in enumerate(stickers):
@@ -54,14 +56,14 @@ def add_set(sticker_set, stickers):
 
 		if sticker_id:
 			cur.execute(
-				"UPDATE stickers SET in_set_id = %s, hash = %s, emoji = %s, is_animated = %s, is_video = %s "
+				"UPDATE stickers SET in_set_id = %s, hash = %s, emoji = %s, is_animated = %s, is_video = %s, update_time = NOW() "
 				"WHERE id = %s",
 				(sticker["id"], sticker["p_hash"], sticker["emoji"],
 				sticker["is_animated"], sticker["is_video"], sticker_id))
 		else:
 			cur.execute(
-				"INSERT INTO stickers(set_id, in_set_index, in_set_id, hash, emoji, is_animated, is_video) "
-				"VALUES (%s, %s, %s, %s, %s, %s, %s)",
+				"INSERT INTO stickers(set_id, in_set_index, in_set_id, hash, emoji, is_animated, is_video, update_time) "
+				"VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())",
 				(set_id, i + 1, sticker["id"], sticker["p_hash"], sticker["emoji"],
 				sticker["is_animated"], sticker["is_video"]))
 
@@ -71,14 +73,7 @@ def add_set(sticker_set, stickers):
 
 def find_duplicates(sticker):
 	try:
-		if not os.path.exists(f"stickers"):
-			os.mkdir(f"stickers")
-
-		if not os.path.exists(f"stickers/{sticker[ 'set_name' ]}"):
-			os.mkdir(f"stickers/{sticker[ 'set_name' ]}")
-
-		if not os.path.exists(f"stickers/{sticker[ 'set_name' ]}/{sticker.file_unique_id}.webp"):
-			sticker.get_file().download(f"stickers/{sticker[ 'set_name' ]}/{sticker.file_unique_id}.webp")
+		downloader.download_sticker(sticker.get_file(), f"stickers/{sticker[ 'set_name' ]}/{sticker.file_unique_id}.webp")
 	except telegram.TelegramError:
 		print("ERROR: Failed to download sticker for searching!")
 
@@ -103,6 +98,8 @@ def find_duplicates(sticker):
 		result.append(sticker_set)
 
 	con.close()
+
+	downloader.remove_set(sticker[ 'set_name' ])
 
 	return result
 
@@ -146,6 +143,28 @@ def get_sets(offset = 0, limit = 100):
 	con.close()
 
 	return sets
+
+
+def get_set_info(set_name):
+	con = create_connection()
+	cur = con.cursor()
+
+	cur.execute("SELECT * FROM sets WHERE name = %s", (set_name,))
+
+	sticker_set = cur.fetchall()
+
+	if not len(sticker_set):
+		return None
+
+	sticker_set = sticker_set[0]
+
+	sticker_set = {
+		"name":  sticker_set[1],
+		"title": sticker_set[2],
+		"update_time": sticker_set[3]
+	}
+
+	return sticker_set
 
 
 def get_set(set_name):
