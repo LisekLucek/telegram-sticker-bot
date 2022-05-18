@@ -10,7 +10,7 @@ def create_path(path):
 
 def download_sticker(sticker_file, local_path):
 
-	create_path(local_path)
+	create_path(os.path.dirname(local_path))
 	sticker_file.download(local_path)
 
 
